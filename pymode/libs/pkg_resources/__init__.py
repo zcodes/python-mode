@@ -2169,8 +2169,8 @@ def _handle_ns(packageName, path_item):
     if importer is None:
         return None
 
-    if PY3:
-        loader = importer.find_module(packageName)
+    if sys.version_info > (3, 4):
+        loader = importer.find_spec(packageName)
     else:
         try:
             loader = importer.find_module(packageName)
