@@ -52,6 +52,88 @@ fun! pymode#folding#expr(lnum) "{{{
 
 endfunction "}}}
 
+fun! pymode#folding#simple_expr(lnum) "{{{ 
+  let l:line = getline(a:lnum)
+  let l:indent = indent(a:lnum)
+
+  " fold multiline comments
+  if l:line =~ '^\s*#'
+    let l:fold_level = l:indent / &shiftwidth
+    if getline(a:lnum - 1) !~ '^\s*#'
+      if getline(a:lnum + 1) =~ '^\s*#'
+        return '>' . (l:fold_level + 1)
+      else
+        return l:fold_level
+      endif
+    else
+      if getline(a:lnum + 1) !~  '^\s*#'
+        return '<' . (l:fold_level + 1)
+      else
+        return l:fold_level + 1
+      endif
+    endif
+  endif
+
+  " fold python docstring
+  if synIDattr(synID(a:lnum, 1, 0), 'name') == 'pythonDocstring'
+    if l:line =~ '^\s*[uUrR]\=\("""\|''''''\)\+'
+      if synIDattr(synID(a:lnum - 1, 1, 0), 'name') == 'pythonDocstring'
+        return '<' . ((l:indent / &shiftwidth) + 1)
+      elseif l:line !~ '^\s*\("""\).*\("""\)$'
+        return '>' . ((l:indent / &shiftwidth) + 1)
+      else
+        return l:indent / &shiftwidth
+      endif
+    endif
+
+    return '='
+  endif
+
+  " handle empty line
+  if l:line =~ '^\s*$'
+    if synIDattr(synID(a:lnum + 1, 1, 0), 'name') == 'pythonDocstring' &&
+          \ synIDattr(synID(a:lnum -1, 1, 0), 'name') == 'pythonDocstring'
+      return '='
+    endif
+
+    if getline(a:lnum + 1) =~ '^\s*$' ||
+          \ getline(a:lnum - 1) =~ '^\s*$'
+      return 0
+    endif
+
+    return '='
+  endif
+
+  let l:prev_indent = indent(prevnonblank(a:lnum - 1))
+  let l:next_indent = indent(nextnonblank(a:lnum + 1))
+
+  let l:fold_level = l:indent / &shiftwidth
+  if exists('g:python_max_fold_level')
+    let l:max_fold_level = g:python_max_fold_level
+  else
+    let l:max_fold_level = &foldnestmax
+  endif
+
+  if l:fold_level > l:max_fold_level
+    let l:fold_level = l:max_fold_level
+  endif
+
+  if (l:indent < l:next_indent) && (l:line !~ '^\s*[}\])]')
+    return '>' . (l:fold_level + 1)
+  elseif (l:indent > l:next_indent) && (getline(nextnonblank(a:lnum + 1)) !~ '^\s*')
+    if l:line =~ '^\s*[}\])]'
+      return '<' . (l:fold_level + 1)
+    else
+      return '<' . l:fold_level
+    endif
+  else
+    if l:line =~ '^\s*[}\])]'
+      return '<' . (l:fold_level + 1)
+    endif
+    return l:fold_level
+  endif
+endfunction "}}}
+
 fun! pymode#folding#foldcase(lnum) "{{{
     " Return a dictionary with a brief description of the foldcase and the
     " evaluated foldlevel: {'foldcase': 'case description', 'foldlevel': 1}.
